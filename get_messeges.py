@@ -121,7 +121,7 @@ def get_vk_messages_list(data):
 def get_tg_messages_list(data):
 	print(Fore.YELLOW)
 	list_dir_mess = []
-	for file_dir in os.listdir("DataExport/chats"):
+	for file_dir in os.listdir("data/DataExport/chats"):
 		
 		for file_dir_user in os.listdir("data/DataExport/chats/"+str(file_dir)):
 				file_name = "data/DataExport/chats/"+str(file_dir)+"/"+file_dir_user
@@ -177,11 +177,24 @@ def list_to_normal_form(lst):
 
 def start():
 	data = []
-	data = get_vk_messages_list(data) # получение vk 
-	data = get_tg_messages_list(data) # получение tg
+	
+	b = 0
+	if "Archive" in os.listdir("data"):
+		b = b+1
+		data = get_vk_messages_list(data) # получение vk 
+	if "DataExport" in os.listdir("data"):
+		b = b+1
+		data = get_tg_messages_list(data) # получение tg
 
-	create_word_table(data)
-	create_table()
+	if b == 0:
+		print("переместите вк/тг архив ")
+		print("убедитесь что название папок залано правильно")
+		print("*DataExport - для тг")
+		print("*Archive - для vk")
+
+	else:
+		create_word_table(data)
+		create_table()
 
 
 start()
