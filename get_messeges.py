@@ -5,12 +5,16 @@ import pymorphy2
 import json
 import threading
 import sqlite3
-#193183153
+from colorama import Fore, Back, Style
 
 
+try:
+	os.mkdir("data")
+except Exception as e:
+	pass
 
 filters = ["'",",",".",'[',']','{','}','(',")",
-'«','»',"-",";"
+'«','»',"-",";" , "'", '"'
 ]
 
 
@@ -46,20 +50,36 @@ morph = pymorphy2.MorphAnalyzer()
 
 
 
-def split_mass(lst , n):
-	a = []
-	for i in range(0,n):
-		a.append([])
+#оздание таблицы подсчета повторений
+def create_table():
+	cur = conn.cursor()
+	print(cur.execute("""INSERT INTO word_normal(word,match) SELECT
+		`word_normal_form`,
+		COUNT(`word_normal_form`) AS `count`
+	FROM
+		`word`
+	GROUP BY
+		`word_normal_form`
+	HAVING 
+		`count` > 1"""))
+	conn.commit() 
 
-	b = 0
-	for i in lst:
-		a[b].append(i)
-		b =b +1
-		if b >n-1:
-			b = 0
-	return a
+#создание обще таблицы слов и их изначальной формы
+def create_word_table(data):
+	print(Fore.GREEN)
+	text = []
+	for i in data:
+		for ii in i.split():
+			text.append(ii)
 
 
+	cur = conn.cursor()
+	for i in tqdm(text , desc= "создание общей таблицы"):
+		i= anti_simfol(i)
+		cur.execute("INSERT INTO word VALUES(?,?);",(i.lower() ,morph.parse(i)[0].normal_form,) )	
+	conn.commit()
+
+	print(Style.RESET_ALL)
 
 def anti_simfol(text):
 
@@ -72,17 +92,17 @@ def anti_simfol(text):
 
 #получение всех сообщений из переписок вк
 
-def get_vk_messages_list():
-	data = []
+def get_vk_messages_list(data):
+	print(Fore.MAGENTA)
 	list_dir_mess = []
-	for file_dir in os.listdir("Archive/messages"):
+	for file_dir in os.listdir("data/Archive/messages"):
 		if ("index-messages.html" !=file_dir) ==True:
 			if int(file_dir) >0:#проверка на бота
-				for file_dir_user in os.listdir("Archive/messages/"+str(file_dir)):
-						file_name = "Archive/messages/"+str(file_dir)+"/"+file_dir_user
+				for file_dir_user in os.listdir("data/Archive/messages/"+str(file_dir)):
+						file_name = "data/Archive/messages/"+str(file_dir)+"/"+file_dir_user
 						list_dir_mess.append(file_name)
 
-	for file_name in tqdm(list_dir_mess):
+	for file_name in tqdm(list_dir_mess , desc= "vk"):
 		with open(file_name ,"r") as file:
 			f = file.read()
 			soup = BeautifulSoup(f, 'lxml') 
@@ -94,8 +114,37 @@ def get_vk_messages_list():
 					if (text.split()[0] in clear_lits) == False:
 						data.append(text)
 
-
+	print(Style.RESET_ALL)
 	return data
+
+#получение всех сообщений из переписок tg
+def get_tg_messages_list(data):
+	print(Fore.YELLOW)
+	list_dir_mess = []
+	for file_dir in os.listdir("DataExport/chats"):
+		
+		for file_dir_user in os.listdir("data/DataExport/chats/"+str(file_dir)):
+				file_name = "data/DataExport/chats/"+str(file_dir)+"/"+file_dir_user
+				list_dir_mess.append(file_name)
+
+	for file_name in tqdm(list_dir_mess , desc= "tg"):
+		if str(file_name).split(".")[-1] == "html":
+			with open(file_name ,"r",encoding='utf-8') as file:
+				f = file.read()
+				soup = BeautifulSoup(f, 'lxml') 
+				messeges = soup.find_all("div", attrs={ "class" : "text"})
+
+				for i in messeges:
+					text = i.text
+					if ((len(text.split())>0) and (text!= " ")):
+						if (text.split()[0] in clear_lits) == False:
+							data.append(text)
+
+	print(Style.RESET_ALL)
+	return data
+
+
+
 
 # просто разбивает элементы массива(сообщения целиком) на слова и создает из них текс
 def list_to_text(lst):
@@ -121,38 +170,20 @@ def list_to_normal_form(lst):
 
 
 
-tesst = get_vk_messages_list()
-
-text = []
-
-for i in tesst:
-	for ii in i.split():
-		text.append(ii)
-
-
-cur = conn.cursor()
-for i in tqdm(text):
-	i= anti_simfol(i)
-	cur.execute("INSERT INTO word VALUES(?,?);",(i.lower() ,morph.parse(i)[0].normal_form,) )	
-conn.commit()
-
-
-
-cur = conn.cursor()
-print(cur.execute("""INSERT INTO word_normal(word,match) SELECT
-	`word_normal_form`,
-	COUNT(`word_normal_form`) AS `count`
-FROM
-	`word`
-GROUP BY
-	`word_normal_form`
-HAVING 
-	`count` > 1"""))
-conn.commit()
 
 
 
 
 
+def start():
+	data = []
+	data = get_vk_messages_list(data) # получение vk 
+	data = get_tg_messages_list(data) # получение tg
+
+	create_word_table(data)
+	create_table()
+
+
+start()
 input("готово")
 

@@ -1,5 +1,7 @@
 Archive/
 download_file_dir/
+data/
+
 result.json
 proxy.txt
 proxy.json
